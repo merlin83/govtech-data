@@ -6,6 +6,7 @@ authors = ["Khee-Chin Chua <kheechin@gmail.com>"]
 license = "Singapore Open Data License"
 readme = "README.md"
 packages = [{include = "govtech_data"}]
+repository = "https://github.com/merlin83/govtech-data"
 
 [tool.poetry.dependencies]
 black = "^23.3.0"
