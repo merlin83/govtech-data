@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "govtech-data"
+version = "0.1.1"
+description = "Library to easily access and read data from data.gov.sg"
+authors = ["Khee-Chin Chua <kheechin@gmail.com>"]
+license = "Singapore Open Data License"
+readme = "README.md"
+packages = [{include = "govtech_data"}]
+
+[tool.poetry.dependencies]
+black = "^23.3.0"
+datamodel-code-generator = "^0.17.2"
+fuzzywuzzy = "^0.18.0"
+loguru = "^0.7.0"
+pydantic = "^1.10.7"
+python = "^3.10"
+python-levenshtein = "^0.20.9"
+requests = "^2.28.2"
+isort = "^5.12.0"
+
+[tool.poetry.scripts]
+generate-models = "govtech_data.utils.models:generate_models"
+
+[tool.isort]
+profile = 'black'
+lines_between_types = 1
+combine_as_imports = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
