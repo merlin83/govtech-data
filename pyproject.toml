@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "govtech-data"
-version = "0.1.4"
+version = "0.1.5"
 description = "Library to easily access and read data from data.gov.sg"
 authors = ["Khee-Chin Chua <kheechin@gmail.com>"]
 license = "Singapore Open Data License"
@@ -11,11 +11,11 @@ repository = "https://github.com/merlin83/govtech-data"
 [tool.poetry.dependencies]
 fuzzywuzzy = "^0.18.0"
 loguru = "^0.7.0"
-pandas = "^2.0.0"
 pydantic = "^1.10.7"
 python = "^3.10"
 python-levenshtein = "^0.20.9"
 requests = "^2.28.2"
+polars = "^0.17.2"
 
 [tool.poetry.dev-dependencies]
 black = "^23.3.0"

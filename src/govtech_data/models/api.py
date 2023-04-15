@@ -1,4 +1,11 @@
+import io
+
 from pydantic import BaseModel
+import polars as pl
+
+from govtech_data.models.resources import package_show
+
+INFER_SCHEMA_LENGTH = None  # this does a full table scan, which is slow but acceptible since most datasets are small
 
 
 class PackageShow(BaseModel):
@@ -23,3 +30,20 @@ class DatastoreSearch(BaseModel):
 class SearchPackage(BaseModel):
     package_id: str
     score: int
+
+
+class PackageResourceContent(BaseModel):
+    resource: package_show.Resource
+    content: io.StringIO
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    def get_dataframe(self):
+        self.content.seek(0)
+        return pl.read_csv(self.content, infer_schema_length=INFER_SCHEMA_LENGTH)
+
+
+class PackageContent(BaseModel):
+    package: package_show.Result
+    resources: list[PackageResourceContent] | None
