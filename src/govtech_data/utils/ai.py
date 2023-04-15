@@ -7,8 +7,10 @@ except:
 
 import os
 
+from dotenv import load_dotenv
 from loguru import logger
 
+load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 if openai.api_key is None:
