@@ -23,7 +23,7 @@ datamodel-code-generator = "^0.17.2"
 isort = "^5.12.0"
 
 [tool.poetry.scripts]
-generate-models = "govtech_data.utils.models:generate_models"
+generate-models = "tools.models:generate_models"
 
 [tool.isort]
 profile = 'black'
