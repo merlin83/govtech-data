@@ -5,7 +5,7 @@ description = "Library to easily access and read data from data.gov.sg"
 authors = ["Khee-Chin Chua <kheechin@gmail.com>"]
 license = "Singapore Open Data License"
 readme = "README.md"
-packages = [{include = "govtech_data"}]
+packages = [{include = "govtech_data", from = "src"}]
 repository = "https://github.com/merlin83/govtech-data"
 
 [tool.poetry.dependencies]

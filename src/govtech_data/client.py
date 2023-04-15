@@ -7,13 +7,18 @@ from fuzzywuzzy import process
 from loguru import logger
 from pydantic import BaseModel
 
-from govtech_data.models.api import DatastoreSearch, PackageShow, ResourceShow
-from govtech_data.models.resources.datastore_search import DatastoreSearchModel
-from govtech_data.models.resources.package_list import PackageListModel
-from govtech_data.models.resources.package_show import PackageShowModel
-from govtech_data.models.resources.resource_show import ResourceShowModel
+from src.govtech_data.models.api import (
+    DatastoreSearch,
+    PackageShow,
+    ResourceShow,
+    SearchPackage,
+)
+from src.govtech_data.models.resources.datastore_search import DatastoreSearchModel
+from src.govtech_data.models.resources.package_list import PackageListModel
+from src.govtech_data.models.resources.package_show import PackageShowModel
+from src.govtech_data.models.resources.resource_show import ResourceShowModel
 
-ENDPOINTS = {
+API_ENDPOINTS = {
     "ckan_datastore_search": "https://data.gov.sg/api/action/datastore_search",
     "ckan_package_show": "https://data.gov.sg/api/action/package_show",
     "ckan_package_list": "https://data.gov.sg/api/action/package_list",
@@ -42,7 +47,7 @@ class GovTechClient:
     ) -> Union[BaseModel, DatastoreSearchModel]:
         kwargs["resource_id"] = resource_id
         return cls.get_model_from_json_response(
-            ENDPOINTS.get("ckan_datastore_search"),
+            API_ENDPOINTS.get("ckan_datastore_search"),
             DatastoreSearch(**kwargs).dict(),
             DatastoreSearchModel,
         )
@@ -50,7 +55,7 @@ class GovTechClient:
     @classmethod
     def resource_show(cls, resource_id: str) -> Union[BaseModel, ResourceShowModel]:
         return cls.get_model_from_json_response(
-            ENDPOINTS.get("ckan_resource_show"),
+            API_ENDPOINTS.get("ckan_resource_show"),
             ResourceShow(**{"id": resource_id}).dict(),
             ResourceShowModel,
         )
@@ -58,7 +63,7 @@ class GovTechClient:
     @classmethod
     def package_show(cls, package_id: str) -> Union[BaseModel, PackageShowModel]:
         return cls.get_model_from_json_response(
-            ENDPOINTS.get("ckan_package_show"),
+            API_ENDPOINTS.get("ckan_package_show"),
             PackageShow(**{"id": package_id}).dict(),
             PackageShowModel,
         )
@@ -67,12 +72,17 @@ class GovTechClient:
     @lru_cache(maxsize=1)
     def package_list(cls) -> Union[BaseModel, PackageListModel]:
         return cls.get_model_from_json_response(
-            ENDPOINTS.get("ckan_package_list"), {}, PackageListModel
+            API_ENDPOINTS.get("ckan_package_list"), {}, PackageListModel
         )
 
     @classmethod
-    def search_package(cls, name: str, limit: int = 5):
-        return process.extract(name, cls.package_list().result, limit=limit)
+    def search_package(cls, name: str, limit: int = 10) -> list[SearchPackage]:
+        return [
+            SearchPackage(package_id=package_id, score=score)
+            for (package_id, score) in process.extract(
+                name, cls.package_list().result, limit=limit
+            )
+        ]
 
     @classmethod
     def get_model_from_json_response(
@@ -82,7 +92,7 @@ class GovTechClient:
             raise Exception("url cannot be None!")
         if model is None:
             raise Exception("model cannot be None!")
-        logger.info(f"endpoint name: {url}")
+        logger.debug(f"endpoint name: {url}")
         resp = requests.get(
             url,
             params=params,

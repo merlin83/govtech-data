@@ -18,3 +18,8 @@ class DatastoreSearch(BaseModel):
     q: str | None
     sort: str | None
     records_format: str | None
+
+
+class SearchPackage(BaseModel):
+    package_id: str
+    score: int
