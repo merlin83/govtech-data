@@ -118,7 +118,6 @@ class GovTechClient:
         return model(**resp.json())
 
     @classmethod
-    @lru_cache(maxsize=128)
     @validate_arguments
     def fetch_resources_from_package_result(
         cls, package_result: PackageShowModelResult, limit: int = 0

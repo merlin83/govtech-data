@@ -1,12 +1,12 @@
+from functools import lru_cache
 from io import StringIO
 import requests
 from loguru import logger
 
 
-def fetch_url(
-    url: str, params: dict = None, requests_session: requests.Session = None
-) -> requests.Response:
-    use_session = requests.Session() if requests_session is None else requests_session
+@lru_cache(maxsize=128)
+def fetch_url(url: str, params: dict = None) -> requests.Response:
+    use_session = requests.Session()
     logger.debug(f"Fetching url - {url}")
     return use_session.get(url, params=params, timeout=30)
 
