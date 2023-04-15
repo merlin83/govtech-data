@@ -8,7 +8,7 @@ from loguru import logger
 from pydantic import BaseModel, validate_arguments
 
 from govtech_data.utils.content import fetch_url, convert_response_to_io
-from src.govtech_data.models.api import (
+from govtech_data.models.api import (
     DatastoreSearch,
     PackageShow,
     ResourceShow,
@@ -16,13 +16,13 @@ from src.govtech_data.models.api import (
     PackageResourceContent,
     PackageContent,
 )
-from src.govtech_data.models.resources.datastore_search import DatastoreSearchModel
-from src.govtech_data.models.resources.package_list import PackageListModel
-from src.govtech_data.models.resources.package_show import (
+from govtech_data.models.resources.datastore_search import DatastoreSearchModel
+from govtech_data.models.resources.package_list import PackageListModel
+from govtech_data.models.resources.package_show import (
     PackageShowModel,
     Result as PackageShowModelResult,
 )
-from src.govtech_data.models.resources.resource_show import ResourceShowModel
+from govtech_data.models.resources.resource_show import ResourceShowModel
 
 API_ENDPOINTS = {
     "ckan_datastore_search": "https://data.gov.sg/api/action/datastore_search",
