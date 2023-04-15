@@ -60,6 +60,7 @@ class GovTechClient:
         )
 
     @classmethod
+    @lru_cache(maxsize=512)
     @validate_arguments
     def resource_show(cls, resource_id: str) -> Union[BaseModel, ResourceShowModel]:
         return cls.get_model_from_json_response(
@@ -69,6 +70,7 @@ class GovTechClient:
         )
 
     @classmethod
+    @lru_cache(maxsize=512)
     @validate_arguments
     def package_show(cls, package_id: str) -> Union[BaseModel, PackageShowModel]:
         return cls.get_model_from_json_response(
@@ -116,6 +118,7 @@ class GovTechClient:
         return model(**resp.json())
 
     @classmethod
+    @lru_cache(maxsize=128)
     @validate_arguments
     def fetch_resources_from_package_result(
         cls, package_result: PackageShowModelResult, limit: int = 0
