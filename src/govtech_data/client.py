@@ -2,12 +2,10 @@ from functools import lru_cache
 from typing import Type, Union
 
 import requests
-
 from fuzzywuzzy import process
 from loguru import logger
 from pydantic import BaseModel, validate_arguments
 
-from govtech_data.utils.content import fetch_url, convert_response_to_io
 from govtech_data.models.api import (
     DatastoreSearch,
     PackageShow,
@@ -23,6 +21,7 @@ from govtech_data.models.resources.package_show import (
     Result as PackageShowModelResult,
 )
 from govtech_data.models.resources.resource_show import ResourceShowModel
+from govtech_data.utils.content import fetch_url, convert_response_to_io
 
 API_ENDPOINTS = {
     "ckan_datastore_search": "https://data.gov.sg/api/action/datastore_search",

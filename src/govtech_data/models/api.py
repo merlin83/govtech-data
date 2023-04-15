@@ -1,7 +1,7 @@
 import io
 
-from pydantic import BaseModel
 import polars as pl
+from pydantic import BaseModel
 
 from govtech_data.models.resources import package_show
 
@@ -41,7 +41,12 @@ class PackageResourceContent(BaseModel):
 
     def get_dataframe(self):
         self.content.seek(0)
-        return pl.read_csv(self.content, infer_schema_length=INFER_SCHEMA_LENGTH)
+        return pl.read_csv(
+            self.content,
+            quote_char=None,
+            use_pyarrow=True,
+            infer_schema_length=INFER_SCHEMA_LENGTH,
+        )
 
 
 class PackageContent(BaseModel):
