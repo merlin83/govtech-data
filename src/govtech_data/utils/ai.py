@@ -19,6 +19,10 @@ if openai.api_key is None:
     )
 
 
+def get_message(role: str, content: str) -> dict:
+    return {"role": role, "content": content}
+
+
 def simple_query_openai(
     messages: list[dict], model="gpt-3.5-turbo", temperature=1.0, n=1
 ):
