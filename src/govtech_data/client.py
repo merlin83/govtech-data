@@ -4,6 +4,7 @@ from typing import Type, Union
 import requests
 from fuzzywuzzy import process
 from loguru import logger
+from polars import DataFrame
 from pydantic import BaseModel, validate_arguments
 
 from govtech_data.models.api import (
@@ -105,7 +106,7 @@ class GovTechClient:
             raise Exception("url cannot be None!")
         if model is None:
             raise Exception("model cannot be None!")
-        logger.debug(f"endpoint name: {url}")
+        logger.debug(f"endpoint: {url}")
         resp = requests.get(
             url,
             params=params,
@@ -147,3 +148,11 @@ class GovTechClient:
                 package_show_model.result, limit
             ),
         )
+
+    @classmethod
+    @validate_arguments
+    def fetch_dataframe_from_package(cls, package_name: str) -> Union[DataFrame, None]:
+        package_content = cls.fetch_content_from_package(package_name, 1)
+        if len(package_content.resources) == 0:
+            return None
+        return package_content.resources[0].get_dataframe()
