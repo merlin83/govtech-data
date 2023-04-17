@@ -1,7 +1,11 @@
 import os
 
-from datamodel_code_generator import __main__ as dcg_main
 from loguru import logger
+
+try:
+    from datamodel_code_generator import __main__ as dcg_main
+except:
+    logger.exception("datamodel_code_generator is NOT installed!")
 
 JSON_RESPONSE_PATH = "./json/models"
 OUTPUT_MODELS_PATH = "./govtech_data/models/resources/"

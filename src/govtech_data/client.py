@@ -2,12 +2,11 @@ from functools import lru_cache
 from typing import Type, Union
 
 import requests
-
 from fuzzywuzzy import process
 from loguru import logger
+from polars import DataFrame
 from pydantic import BaseModel, validate_arguments
 
-from govtech_data.utils.content import fetch_url, convert_response_to_io
 from govtech_data.models.api import (
     DatastoreSearch,
     PackageShow,
@@ -23,6 +22,7 @@ from govtech_data.models.resources.package_show import (
     Result as PackageShowModelResult,
 )
 from govtech_data.models.resources.resource_show import ResourceShowModel
+from govtech_data.utils.content import fetch_url, convert_response_to_io
 
 API_ENDPOINTS = {
     "ckan_datastore_search": "https://data.gov.sg/api/action/datastore_search",
@@ -106,7 +106,7 @@ class GovTechClient:
             raise Exception("url cannot be None!")
         if model is None:
             raise Exception("model cannot be None!")
-        logger.debug(f"endpoint name: {url}")
+        logger.debug(f"endpoint: {url}")
         resp = requests.get(
             url,
             params=params,
@@ -148,3 +148,11 @@ class GovTechClient:
                 package_show_model.result, limit
             ),
         )
+
+    @classmethod
+    @validate_arguments
+    def fetch_dataframe_from_package(cls, package_name: str) -> Union[DataFrame, None]:
+        package_content = cls.fetch_content_from_package(package_name, 1)
+        if len(package_content.resources) == 0:
+            return None
+        return package_content.resources[0].get_dataframe()
