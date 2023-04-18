@@ -129,3 +129,7 @@ In [5]: exec(govtech_openai_client.get_generated_code_from_history())
 
 ### Ask OpenAI to generate a trend graph for average resale flat prices
 ![Test123](img/example.png)
+
+## Credits
+
+This library adopts some ideas from the [Auto-GPT](https://github.com/Significant-Gravitas/Auto-GPT) project to perform Chain-of-Thought reasoning.
