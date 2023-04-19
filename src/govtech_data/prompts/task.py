@@ -40,15 +40,16 @@ from govtech_data import GovTechClient
 df = GovTechClient.fetch_dataframe_from_package(dataset_id).to_pandas()
 
 
+Let's think step by step.
 Do not include any explanations, only provide a JSON response following this format without deviation.
 {
     "thoughts":
     {
-        "text": "short thoughts",
-        "reasoning": "short reasoning",
+        "text": "short thoughts in 1 or 2 short sentences",
+        "reasoning": "short reasoning in 1 or 2 short sentences",
         "plan": "- short bulleted\n- list that conveys\n- long-term plan",
-        "criticism": "short constructive self-criticism",
-        "speak": "thoughts summary to say to user"
+        "criticism": "short constructive self-criticism in 1 or 2 short sentences",
+        "speak": "thoughts summary to say to user in 1 or 2 short sentences"
     },
     "command": {
         "name": "next command name",

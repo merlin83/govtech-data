@@ -25,7 +25,7 @@ if openai.api_key is None:
         "OPENAI_API_KEY is not set! Set it as an environment variable with 'export OPENAI_API_KEY=xxx'"
     )
 
-DEFAULT_TEMPERATURE = 0.7
+DEFAULT_TEMPERATURE = 0.0
 MAXIMUM_NUMBER_OF_TOKENS = 3500
 
 
@@ -56,7 +56,7 @@ class OpenAIClient:
             logger.debug(f"Request:\n{message}")
             self.messages_history.append(message)
 
-        responses = self.simple_query_openai(self.messages_history)
+        responses = self.simple_query_openai(self.messages_history, n=1)
 
         if len(responses) == 0:
             return False
@@ -246,7 +246,7 @@ class OpenAIClient:
 
         completion = cls.__query_openai(use_messages, model, temperature, n)
         responses = []
-        # logger.debug(f"ChatGPT response:\n{completion}")
+        logger.debug(f"ChatGPT Completion Response:\n{completion}")
         for choice in completion.choices:
             if "content" in choice.message:
                 responses.append(choice.message["content"])
