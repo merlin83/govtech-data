@@ -8,12 +8,23 @@ from govtech_data.models.resources.package_show import PackageShowModel
 
 
 def dataset_search(input_str: str) -> str:
-    return f"Datasets found for {input_str}: " + json_dumps(
-        [
-            {"id": result.package_id, "score": result.score}
-            for result in GovTechClient.search_package(input_str)
-        ]
+    return dataset_search_batch([input_str])
+
+
+def dataset_search_batch(input_strs: list[str]) -> str:
+    dupes = {}
+    for input_str in input_strs:
+        for result in GovTechClient.search_package(input_str):
+            if result.package_id in dupes and dupes[result.package_id] <= result.score:
+                continue
+            # results.append({"id": result.package_id, "score": result.score})
+            dupes[result.package_id] = result.score
+    results = sorted(
+        [{"id": k, "score": v} for k, v in dupes.items()],
+        key=lambda x: x.get("score"),
+        reverse=True,
     )
+    return f"Datasets found for {input_strs}: \n" + json_dumps(results)
 
 
 def get_dataset_metadata(package_id: str) -> str:

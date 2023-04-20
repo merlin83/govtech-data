@@ -13,10 +13,10 @@ CONSTRAINTS:
 COMMANDS:
 
 1. Search for dataset ids: "dataset_search", args: "input": "<query>"
-2. Get dataset information: "get_dataset", args: "id": "<dataset_id>"
-3. Get schema for dataset: "get_dataset_schema", args: "id": "<dataset_id>"
-4. Get unique values and counts in a single field from a dataset: "get_all_distinct_values_in_a_dataset_field", args: "id": "<dataset_id>", "field": "<field_name>"
-5. Search for the most similar values in a single field from a dataset: "search_for_relevant_values_in_a_dataset_field", args: "id": "<dataset_id>", "field": "<field_name>", "value": "<value>"
+2. Get dataset information when you have the dataset id: "get_dataset", args: "id": "<dataset_id>"
+3. Get schema for dataset when you have the dataset id: "get_dataset_schema", args: "id": "<dataset_id>"
+4. Get unique values and counts in a single field from a dataset when you have the dataset schema: "get_all_distinct_values_in_a_dataset_field", args: "id": "<dataset_id>", "field": "<field_name>"
+5. Search for the most similar values in a single field from a dataset only when you have the dataset schema: "search_for_relevant_values_in_a_dataset_field", args: "id": "<dataset_id>", "field": "<field_name>", "value": "<value>"
 6. Evaluate full code: "evaluate_full_code", args: "code": "<full_code_string>"
 7. Task Complete (Shutdown): "task_complete", args: "reason": "<reason>"
 
@@ -40,8 +40,7 @@ from govtech_data import GovTechClient
 df = GovTechClient.fetch_dataframe_from_package(dataset_id).to_pandas()
 
 
-Let's think step by step.
-Do not include any explanations, only provide a JSON response following this format without deviation.
+Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
 {
     "thoughts":
     {
@@ -52,10 +51,25 @@ Do not include any explanations, only provide a JSON response following this for
         "speak": "thoughts summary to say to user in 1 or 2 short sentences"
     },
     "command": {
-        "name": "next command name",
+        "name": "command name",
         "args":{
             "arg name": "value"
         }
-    }
+    },
+    "next_command": "<command name>"
 }
+
+The JSON response:
+"""
+
+KEYWORD_SUGGESTION_PROMPT = """
+You are a keyword suggestion AI. Provide a list of the 25 keywords to query a search engine.
+
+
+Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
+{
+    "phrases": ["phrase"]
+}
+
+The JSON response:
 """

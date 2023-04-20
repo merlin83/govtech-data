@@ -2,7 +2,7 @@ import json
 
 import tiktoken
 
-from govtech_data.prompts.task import TASK_SYSTEM_PROMPT
+from govtech_data.prompts.task import TASK_SYSTEM_PROMPT, KEYWORD_SUGGESTION_PROMPT
 from govtech_data.utils import commands
 
 try:
@@ -84,11 +84,27 @@ class OpenAIClient:
         name, args = command.get("name"), command.get("args")
 
         if name == "dataset_search":
+            ss_messages = [
+                self.get_message("system", KEYWORD_SUGGESTION_PROMPT),
+                self.get_message("user", args.get("input")),
+            ]
+            logger.info(f"ss_messages: {ss_messages}")
+            ss_responses = self.simple_query_openai(ss_messages, temperature=0.7, n=1)
+            ss_response_data = json.loads(ss_responses[0], strict=False)
+            logger.debug(f"ChatGPT ss_response_data:\n{ss_response_data}")
+            ss_thoughts, ss_phrases = ss_response_data.get(
+                "thoughts"
+            ), ss_response_data.get("phrases")
             return self.query(
-                commands.dataset_search(args.get("input")),
+                commands.dataset_search_batch([args.get("input")] + ss_phrases),
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
             )
+            # return self.query(
+            #     commands.dataset_search(args.get("input")),
+            #     depth=depth + 1,
+            #     task_system_prompt=task_system_prompt,
+            # )
 
         elif name == "get_dataset":
             return self.query(
@@ -133,7 +149,7 @@ class OpenAIClient:
         elif name == "task_complete":
             return True
 
-        return None
+        return self.query(None, depth=depth + 1, task_system_prompt=task_system_prompt)
 
     def query_plot(self, query, task_system_prompt=TASK_SYSTEM_PROMPT):
         resp = self.query(query, task_system_prompt=task_system_prompt)
