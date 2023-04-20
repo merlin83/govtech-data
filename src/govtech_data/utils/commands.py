@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from fuzzywuzzy import process
+from thefuzz import fuzz, process
 
 from govtech_data import GovTechClient
 from govtech_data.models.resources.package_show import PackageShowModel
@@ -70,7 +70,9 @@ def search_for_relevant_values_in_a_dataset_field(
     return f"Similar values found in {field_name}: " + json_dumps(
         [
             {"name": i[0], "score": i[1]}
-            for i in process.extract(field_value, unique_values, limit=10)
+            for i in process.extract(
+                field_value, unique_values, scorer=fuzz.token_set_ratio, limit=10
+            )
         ]
     )
 
