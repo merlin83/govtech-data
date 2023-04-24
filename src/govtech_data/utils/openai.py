@@ -1,6 +1,5 @@
-import json
-
 import tiktoken
+import yaml
 
 from govtech_data.prompts.task import TASK_SYSTEM_PROMPT, KEYWORD_SUGGESTION_PROMPT
 from govtech_data.utils import commands
@@ -66,13 +65,14 @@ class OpenAIClient:
         self.last_response = response
 
         try:
-            response_data = json.loads(response, strict=False)
+            # response_data = json.loads(response, strict=False)
+            response_data = yaml.safe_load(response)
             logger.debug(f"ChatGPT content response:\n{response_data}")
             self.messages_history.append(
-                self.get_message("assistant", commands.json_dumps(response_data))
+                self.get_message("assistant", commands.yaml_dump(response_data))
             )
         except:
-            logger.error(
+            logger.exception(
                 f"response cannot be parsed! ChatGPT content response:\n{response}"
             )
             self.messages_history.append(self.get_message("assistant", response))
@@ -90,21 +90,25 @@ class OpenAIClient:
             ]
             logger.info(f"ss_messages: {ss_messages}")
             ss_responses = self.simple_query_openai(ss_messages, temperature=0.7, n=1)
-            ss_response_data = json.loads(ss_responses[0], strict=False)
-            logger.debug(f"ChatGPT ss_response_data:\n{ss_response_data}")
-            ss_thoughts, ss_phrases = ss_response_data.get(
-                "thoughts"
-            ), ss_response_data.get("phrases")
-            return self.query(
-                commands.dataset_search_batch([args.get("input")] + ss_phrases),
-                depth=depth + 1,
-                task_system_prompt=task_system_prompt,
-            )
-            # return self.query(
-            #     commands.dataset_search(args.get("input")),
-            #     depth=depth + 1,
-            #     task_system_prompt=task_system_prompt,
-            # )
+            try:
+                ss_response_data = yaml.safe_load(ss_responses[0])
+                logger.debug(f"ChatGPT ss_response_data:\n{ss_response_data}")
+                ss_thoughts, ss_phrases = ss_response_data.get(
+                    "thoughts"
+                ), ss_response_data.get("phrases")
+                return self.query(
+                    commands.dataset_search_batch([args.get("input")] + ss_phrases),
+                    depth=depth + 1,
+                    task_system_prompt=task_system_prompt,
+                )
+            except:
+                logger.exception(
+                    f"response cannot be parsed! ChatGPT content response:\n{response}"
+                )
+                self.messages_history.append(self.get_message("assistant", response))
+                return self.query(
+                    None, depth=depth + 1, task_system_prompt=task_system_prompt
+                )
 
         elif name == "get_dataset":
             return self.query(
@@ -143,7 +147,7 @@ class OpenAIClient:
                 None, depth=depth + 1, task_system_prompt=task_system_prompt
             )
 
-        elif name == "evaluate_full_code":
+        elif name == "generate_full_code":
             return True
 
         elif name == "task_complete":
@@ -166,12 +170,14 @@ class OpenAIClient:
             if "content" not in message:
                 continue
             try:
-                last_message_content = json.loads(message["content"])
+                last_message_content = yaml.safe_load(message["content"])
+                if not isinstance(last_message_content, dict):
+                    continue
             except:
                 continue
             if (
                 last_message_content.get("command", {}).get("name", "")
-                == "evaluate_full_code"
+                == "generate_full_code"
             ):
                 generated_code = (
                     last_message_content.get("command", {}).get("args", {}).get("code")
@@ -193,8 +199,8 @@ class OpenAIClient:
         self.messages_history = []
 
     def print_message_history(self):
-        for message in self.messages_history:
-            logger.info(f"\n{message})")
+        for i, message in enumerate(self.messages_history):
+            logger.info(f"--- #{i} ---\n{message})")
 
     @classmethod
     def num_tokens_from_messages(cls, messages, model="gpt-3.5-turbo"):
