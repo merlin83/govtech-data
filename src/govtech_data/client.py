@@ -2,10 +2,10 @@ from functools import lru_cache
 from typing import Type, Union
 
 import requests
-from fuzzywuzzy import process
 from loguru import logger
 from polars import DataFrame
 from pydantic import BaseModel, validate_arguments
+from thefuzz import fuzz, process
 
 from govtech_data.models.api import (
     DatastoreSearch,
@@ -93,7 +93,10 @@ class GovTechClient:
         return [
             SearchPackage(package_id=package_id, score=score)
             for (package_id, score) in process.extract(
-                name, cls.package_list().result, limit=limit
+                name,
+                cls.package_list().result,
+                scorer=fuzz.token_set_ratio,
+                limit=limit,
             )
         ]
 

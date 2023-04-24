@@ -1,24 +1,42 @@
 import json
 from typing import Any
 
-from fuzzywuzzy import process
+import tomlkit
+import yaml
+from thefuzz import fuzz, process
 
 from govtech_data import GovTechClient
 from govtech_data.models.resources.package_show import PackageShowModel
 
+NUMBER_OF_DATASETS_LIMIT = 50
+SEARCH_SCORE_THRESHOLD = 50
+
 
 def dataset_search(input_str: str) -> str:
-    return f"Datasets found for {input_str}: " + json_dumps(
-        [
-            {"id": result.package_id, "score": result.score}
-            for result in GovTechClient.search_package(input_str)
-        ]
-    )
+    return dataset_search_batch([input_str])
+
+
+def dataset_search_batch(input_strs: list[str]) -> str:
+    dupes = {}
+    for input_str in input_strs:
+        for result in GovTechClient.search_package(input_str):
+            if result.package_id in dupes and dupes[result.package_id] <= result.score:
+                continue
+            if result.score <= SEARCH_SCORE_THRESHOLD:
+                continue
+            # results.append({"id": result.package_id, "score": result.score})
+            dupes[result.package_id] = result.score
+    results = sorted(
+        [{"id": k, "score": v} for k, v in dupes.items()],
+        key=lambda x: x.get("score"),
+        reverse=True,
+    )[:NUMBER_OF_DATASETS_LIMIT]
+    return f"Datasets found:\n\n" + json_dump(results)
 
 
 def get_dataset_metadata(package_id: str) -> str:
     package_show: PackageShowModel = GovTechClient.package_show(package_id)
-    return f"Metadata for {package_id}: " + json_dumps(
+    return f"Metadata for {package_id}: " + json_dump(
         {
             "id": package_id,
             "description": package_show.result.description,
@@ -46,7 +64,7 @@ def get_all_distinct_values_and_counts_in_a_dataset_field(
 
 
 def get_all_distinct_values_in_a_dataset_field(package_id: str, field_name: str) -> str:
-    return f"All distinct values in {field_name}: " + json_dumps(
+    return f"All distinct values in {package_id}: {field_name}:\n\n" + json_dump(
         [
             i[0]
             for i in get_all_distinct_values_and_counts_in_a_dataset_field(
@@ -66,14 +84,29 @@ def search_for_relevant_values_in_a_dataset_field(
         )
     ]
     if field_value is None or len(field_value) == 0:
-        return json_dumps([{"name": i[0], "score": 100} for i in unique_values])
-    return f"Similar values found in {field_name}: " + json_dumps(
+        return f"All unique values found in {field_name}:\n\n" + json_dump(
+            [i[0] for i in unique_values]
+        )
+    results = sorted(
         [
-            {"name": i[0], "score": i[1]}
-            for i in process.extract(field_value, unique_values, limit=10)
-        ]
+            {"value": n, "counts": s}
+            for n, s in process.extract(
+                field_value, unique_values, scorer=fuzz.token_set_ratio, limit=10
+            )
+        ],
+        key=lambda x: x.get("counts"),
+        reverse=True,
     )
+    return f"Similar values found in {field_name}:\n\n" + json_dump(results)
 
 
-def json_dumps(obj: Any):
+def json_dump(obj: Any) -> str:
     return json.dumps(obj, separators=(",", ":"))
+
+
+def yaml_dump(obj: Any) -> str:
+    return yaml.dump(obj, sort_keys=False)
+
+
+def toml_dump(obj: Any) -> str:
+    return tomlkit.dumps(obj, sort_keys=False)

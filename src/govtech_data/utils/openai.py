@@ -1,8 +1,7 @@
-import json
-
 import tiktoken
+import tomlkit
 
-from govtech_data.prompts.task import TASK_SYSTEM_PROMPT
+from govtech_data.prompts.task import TASK_SYSTEM_PROMPT, KEYWORD_SUGGESTION_PROMPT
 from govtech_data.utils import commands
 
 try:
@@ -52,7 +51,11 @@ class OpenAIClient:
             self.messages_history.append(self.get_message("system", task_system_prompt))
 
         if query:
-            message = self.get_message("user", query)
+            if len(self.messages_history) == 1:
+                role = "user"
+            else:
+                role = "assistant"
+            message = self.get_message(role, query)
             logger.debug(f"Request:\n{message}")
             self.messages_history.append(message)
 
@@ -66,13 +69,25 @@ class OpenAIClient:
         self.last_response = response
 
         try:
-            response_data = json.loads(response, strict=False)
+            # response_data = json.loads(response, strict=False)
+            # response_data = yaml.safe_load(response)
+            response_data = tomlkit.loads(response)
+
+            command = response_data.get("current_command", {})
+            name, args = command.get("name", "").strip().strip('"'), {
+                k: v.strip().strip('"') if isinstance(v, str) else v
+                for k, v in command.get("args", {}).items()
+            }
+
+            if args:
+                response_data["current_command"]["args"] = args
+
             logger.debug(f"ChatGPT content response:\n{response_data}")
             self.messages_history.append(
-                self.get_message("assistant", commands.json_dumps(response_data))
+                self.get_message("assistant", commands.toml_dump(response_data))
             )
         except:
-            logger.error(
+            logger.exception(
                 f"response cannot be parsed! ChatGPT content response:\n{response}"
             )
             self.messages_history.append(self.get_message("assistant", response))
@@ -80,15 +95,32 @@ class OpenAIClient:
                 None, depth=depth + 1, task_system_prompt=task_system_prompt
             )
 
-        command = response_data.get("command", {})
-        name, args = command.get("name"), command.get("args")
-
         if name == "dataset_search":
-            return self.query(
-                commands.dataset_search(args.get("input")),
-                depth=depth + 1,
-                task_system_prompt=task_system_prompt,
-            )
+            ss_messages = [
+                self.get_message("system", KEYWORD_SUGGESTION_PROMPT),
+                self.get_message("user", args.get("input")),
+            ]
+            # logger.info(f"ss_messages: {ss_messages}")
+            ss_responses = self.simple_query_openai(ss_messages, temperature=0.7, n=1)
+            try:
+                ss_response_data = tomlkit.loads(ss_responses[0])
+                logger.debug(f"ChatGPT ss_response_data:\n{ss_response_data}")
+                ss_thoughts, ss_phrases = ss_response_data.get("general", {}).get(
+                    "thoughts"
+                ), ss_response_data.get("general", {}).get("phrases", [])
+                return self.query(
+                    commands.dataset_search_batch([args.get("input")] + ss_phrases),
+                    depth=depth + 1,
+                    task_system_prompt=task_system_prompt,
+                )
+            except:
+                logger.exception(
+                    f"response cannot be parsed! ChatGPT content response:\n{response}"
+                )
+                self.messages_history.append(self.get_message("assistant", response))
+                return self.query(
+                    None, depth=depth + 1, task_system_prompt=task_system_prompt
+                )
 
         elif name == "get_dataset":
             return self.query(
@@ -127,13 +159,13 @@ class OpenAIClient:
                 None, depth=depth + 1, task_system_prompt=task_system_prompt
             )
 
-        elif name == "evaluate_full_code":
+        elif name == "generate_full_code":
             return True
 
         elif name == "task_complete":
             return True
 
-        return None
+        return self.query(None, depth=depth + 1, task_system_prompt=task_system_prompt)
 
     def query_plot(self, query, task_system_prompt=TASK_SYSTEM_PROMPT):
         resp = self.query(query, task_system_prompt=task_system_prompt)
@@ -150,15 +182,19 @@ class OpenAIClient:
             if "content" not in message:
                 continue
             try:
-                last_message_content = json.loads(message["content"])
+                last_message_content = tomlkit.loads(message["content"])
+                if not isinstance(last_message_content, dict):
+                    continue
             except:
                 continue
             if (
-                last_message_content.get("command", {}).get("name", "")
-                == "evaluate_full_code"
+                last_message_content.get("current_command", {}).get("name", "")
+                == "generate_full_code"
             ):
                 generated_code = (
-                    last_message_content.get("command", {}).get("args", {}).get("code")
+                    last_message_content.get("current_command", {})
+                    .get("args", {})
+                    .get("code")
                 )
             if generated_code:
                 break
@@ -177,8 +213,8 @@ class OpenAIClient:
         self.messages_history = []
 
     def print_message_history(self):
-        for message in self.messages_history:
-            logger.info(f"\n{message})")
+        for i, message in enumerate(self.messages_history):
+            logger.info(f"--- #{i} ---\n{message})")
 
     @classmethod
     def num_tokens_from_messages(cls, messages, model="gpt-3.5-turbo"):

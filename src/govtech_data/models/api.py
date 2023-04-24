@@ -52,3 +52,8 @@ class PackageResourceContent(BaseModel):
 class PackageContent(BaseModel):
     package: package_show.Result
     resources: list[PackageResourceContent] | None
+
+
+class Messages(BaseModel):
+    role: str
+    content: str
