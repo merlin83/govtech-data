@@ -1,5 +1,5 @@
 import tiktoken
-import yaml
+import tomlkit
 
 from govtech_data.prompts.task import TASK_SYSTEM_PROMPT, KEYWORD_SUGGESTION_PROMPT
 from govtech_data.utils import commands
@@ -51,7 +51,11 @@ class OpenAIClient:
             self.messages_history.append(self.get_message("system", task_system_prompt))
 
         if query:
-            message = self.get_message("user", query)
+            if len(self.messages_history) == 1:
+                role = "user"
+            else:
+                role = "assistant"
+            message = self.get_message(role, query)
             logger.debug(f"Request:\n{message}")
             self.messages_history.append(message)
 
@@ -66,10 +70,21 @@ class OpenAIClient:
 
         try:
             # response_data = json.loads(response, strict=False)
-            response_data = yaml.safe_load(response)
+            # response_data = yaml.safe_load(response)
+            response_data = tomlkit.loads(response)
+
+            command = response_data.get("current_command", {})
+            name, args = command.get("name", "").strip().strip('"'), {
+                k: v.strip().strip('"') if isinstance(v, str) else v
+                for k, v in command.get("args", {}).items()
+            }
+
+            if args:
+                response_data["current_command"]["args"] = args
+
             logger.debug(f"ChatGPT content response:\n{response_data}")
             self.messages_history.append(
-                self.get_message("assistant", commands.yaml_dump(response_data))
+                self.get_message("assistant", commands.toml_dump(response_data))
             )
         except:
             logger.exception(
@@ -80,22 +95,19 @@ class OpenAIClient:
                 None, depth=depth + 1, task_system_prompt=task_system_prompt
             )
 
-        command = response_data.get("command", {})
-        name, args = command.get("name"), command.get("args")
-
         if name == "dataset_search":
             ss_messages = [
                 self.get_message("system", KEYWORD_SUGGESTION_PROMPT),
                 self.get_message("user", args.get("input")),
             ]
-            logger.info(f"ss_messages: {ss_messages}")
+            # logger.info(f"ss_messages: {ss_messages}")
             ss_responses = self.simple_query_openai(ss_messages, temperature=0.7, n=1)
             try:
-                ss_response_data = yaml.safe_load(ss_responses[0])
+                ss_response_data = tomlkit.loads(ss_responses[0])
                 logger.debug(f"ChatGPT ss_response_data:\n{ss_response_data}")
-                ss_thoughts, ss_phrases = ss_response_data.get(
+                ss_thoughts, ss_phrases = ss_response_data.get("general", {}).get(
                     "thoughts"
-                ), ss_response_data.get("phrases")
+                ), ss_response_data.get("general", {}).get("phrases", [])
                 return self.query(
                     commands.dataset_search_batch([args.get("input")] + ss_phrases),
                     depth=depth + 1,
@@ -170,17 +182,19 @@ class OpenAIClient:
             if "content" not in message:
                 continue
             try:
-                last_message_content = yaml.safe_load(message["content"])
+                last_message_content = tomlkit.loads(message["content"])
                 if not isinstance(last_message_content, dict):
                     continue
             except:
                 continue
             if (
-                last_message_content.get("command", {}).get("name", "")
+                last_message_content.get("current_command", {}).get("name", "")
                 == "generate_full_code"
             ):
                 generated_code = (
-                    last_message_content.get("command", {}).get("args", {}).get("code")
+                    last_message_content.get("current_command", {})
+                    .get("args", {})
+                    .get("code")
                 )
             if generated_code:
                 break
