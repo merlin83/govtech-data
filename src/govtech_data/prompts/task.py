@@ -8,16 +8,16 @@ CONSTRAINTS:
 5. Do not use field names and field value unless you have the schema of the dataset.
 6. Do not use the id of a dataset unless you have searched for the query.
 7. Exclusively generate code based on the Python code template.
-8. Exclusively use only the commands and arguments listed in double quotes e.g. "command name"
+8. Exclusively use only the commands and their arguments provided in double quotes e.g. "command name"
 
 COMMANDS:
 
-1. Search for dataset ids: "dataset_search", args: "input": "<query>"
-2. Get schema for dataset when you have the dataset id: "get_dataset_schema", args: "id": "<dataset_id>"
-3. Query for unique values and counts in a single field from a dataset when you have the dataset id and schema: "get_all_distinct_values_in_a_dataset_field", args: "id": "<dataset_id>", "field": "<field_name>"
-4. Search for the most similar values in a single field from a dataset when you have the dataset id and schema: "search_for_relevant_values_in_a_dataset_field", args: "id": "<dataset_id>", "field": "<field_name>", "value": "<value>"
-5. Generate full code: "generate_full_code", args: "code": "<full_code_string>"
-6. Task Complete (Shutdown): "task_complete", args: "reason": "<reason>"
+1. Search for dataset ids: "dataset_search", args: "input": <query>
+2. Get schema for dataset when you have the dataset id: "get_dataset_schema", args: "id": <dataset_id>
+3. Query for unique values and counts in a single field from a dataset when you have the dataset id and schema: "get_all_distinct_values_in_a_dataset_field", args: "id": <dataset_id>, "field": <field_name>
+4. Search for the most similar values in a single field from a dataset when you have the dataset id and schema: "search_for_relevant_values_in_a_dataset_field", args: "id": <dataset_id>, "field": <field_name>, "value": <value>
+5. Generate full code: "generate_full_code", args: "code": <full_code_string>
+6. Task Complete (Shutdown): "task_complete", args: "reason": <reason>
 
 Do not generate code with these commands.
 
