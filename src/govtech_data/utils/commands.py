@@ -20,7 +20,7 @@ def dataset_search_batch(input_strs: list[str]) -> str:
     dupes = {}
     for input_str in input_strs:
         for result in GovTechClient.search_package(input_str):
-            if result.package_id in dupes and dupes[result.package_id] <= result.score:
+            if result.package_id in dupes and dupes[result.package_id] >= result.score:
                 continue
             if result.score <= SEARCH_SCORE_THRESHOLD:
                 continue

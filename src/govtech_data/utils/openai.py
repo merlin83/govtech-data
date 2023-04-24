@@ -98,6 +98,7 @@ class OpenAIClient:
         if name == "dataset_search":
             ss_messages = [
                 self.get_message("system", KEYWORD_SUGGESTION_PROMPT),
+                self.get_message("assistant", commands.toml_dump(response_data)),
                 self.get_message("user", args.get("input")),
             ]
             # logger.info(f"ss_messages: {ss_messages}")
