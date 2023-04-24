@@ -72,7 +72,7 @@ TOML response:
 """
 
 KEYWORD_SUGGESTION_PROMPT = """
-You are a keyword suggestion AI. Suggest a list of 25 keywords from very general to specific to query a search engine.
+You are a keyword suggestion engine. Suggest up to 15 simple phrases in lowercase from very general to specific to query a search engine.
 
 You must provide only a TOML response following this format without deviation and explanations.
 [general]
