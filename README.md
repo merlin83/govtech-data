@@ -3,14 +3,15 @@
 ## Features
 
 - govtech-data
-  - An easy search to find the data you are looking for!
+  - An easy search function to find the datasets you are looking for!
   - Smart caching to reduce the number of API calls!
 - govtech-data[openai]
-  - An easy 
+  - An easy-to-use client that uses OpenAI models to answer your questions from any of the datasets available on data.gov.sg!
+
 
 ## Optional requirements
 
-- [OpenAI API key](https://platform.openai.com/account/api-keys)
+- [OPENAI_API_KEY](https://platform.openai.com/account/api-keys) exported as an environment variable or via dotenv
 
 ## Installation
 
