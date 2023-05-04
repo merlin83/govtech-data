@@ -25,7 +25,21 @@ if openai.api_key is None:
     )
 
 DEFAULT_TEMPERATURE = 0.0
-MAXIMUM_NUMBER_OF_TOKENS = 3500
+DEFAULT_MAX_NUMBER_OF_TOKENS = 4000
+TOKEN_BUFFER = 500
+
+MAXIMUM_NUMBER_OF_TOKENS_KEY = "MAXIMUM_NUMBER_OF_TOKENS"
+
+MODEL_CONFIGS = {
+    "gpt-4-0314": {MAXIMUM_NUMBER_OF_TOKENS_KEY: 8000 - TOKEN_BUFFER},
+    "gpt-4": {MAXIMUM_NUMBER_OF_TOKENS_KEY: 8000 - TOKEN_BUFFER},
+    "gpt-3.5-turbo-0301": {
+        MAXIMUM_NUMBER_OF_TOKENS_KEY: DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
+    },
+    "gpt-3.5-turbo": {
+        MAXIMUM_NUMBER_OF_TOKENS_KEY: DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
+    },
+}
 
 
 class OpenAIClient:
@@ -42,7 +56,13 @@ class OpenAIClient:
         self.last_response = None
         self.CIRCUIT_BREAKER_LIMIT = 15
 
-    def query(self, query, depth=1, task_system_prompt=TASK_SYSTEM_PROMPT):
+    def query(
+        self,
+        query,
+        model="gpt-3.5-turbo",
+        depth=1,
+        task_system_prompt=TASK_SYSTEM_PROMPT,
+    ):
         if depth >= self.CIRCUIT_BREAKER_LIMIT:
             logger.error("circuit-breaker triggered to avoid an infinite query loop")
             return False
@@ -59,7 +79,7 @@ class OpenAIClient:
             logger.debug(f"Request:\n{message}")
             self.messages_history.append(message)
 
-        responses = self.simple_query_openai(self.messages_history, n=1)
+        responses = self.simple_query_openai(self.messages_history, model=model, n=1)
 
         if len(responses) == 0:
             return False
@@ -92,7 +112,10 @@ class OpenAIClient:
             )
             self.messages_history.append(self.get_message("assistant", response))
             return self.query(
-                None, depth=depth + 1, task_system_prompt=task_system_prompt
+                None,
+                model=model,
+                depth=depth + 1,
+                task_system_prompt=task_system_prompt,
             )
 
         if name == "dataset_search":
@@ -102,7 +125,9 @@ class OpenAIClient:
                 self.get_message("user", args.get("input")),
             ]
             # logger.info(f"ss_messages: {ss_messages}")
-            ss_responses = self.simple_query_openai(ss_messages, temperature=0.7, n=1)
+            ss_responses = self.simple_query_openai(
+                ss_messages, model=model, temperature=0.7, n=1
+            )
             try:
                 ss_response_data = tomlkit.loads(ss_responses[0])
                 logger.debug(f"ChatGPT ss_response_data:\n{ss_response_data}")
@@ -111,6 +136,7 @@ class OpenAIClient:
                 ), ss_response_data.get("general", {}).get("phrases", [])
                 return self.query(
                     commands.dataset_search_batch([args.get("input")] + ss_phrases),
+                    model=model,
                     depth=depth + 1,
                     task_system_prompt=task_system_prompt,
                 )
@@ -120,12 +146,16 @@ class OpenAIClient:
                 )
                 self.messages_history.append(self.get_message("assistant", response))
                 return self.query(
-                    None, depth=depth + 1, task_system_prompt=task_system_prompt
+                    None,
+                    model=model,
+                    depth=depth + 1,
+                    task_system_prompt=task_system_prompt,
                 )
 
         elif name == "get_dataset":
             return self.query(
                 commands.get_dataset_schema(args.get("id")),
+                model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
             )
@@ -133,6 +163,7 @@ class OpenAIClient:
         elif name == "get_dataset_schema":
             return self.query(
                 commands.get_dataset_schema(args.get("id")),
+                model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
             )
@@ -142,6 +173,7 @@ class OpenAIClient:
                 commands.get_all_distinct_values_in_a_dataset_field(
                     args.get("id"), args.get("field")
                 ),
+                model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
             )
@@ -151,13 +183,17 @@ class OpenAIClient:
                 commands.search_for_relevant_values_in_a_dataset_field(
                     args.get("id"), args.get("field"), args.get("value")
                 ),
+                model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
             )
 
         elif name == "do_nothing":
             return self.query(
-                None, depth=depth + 1, task_system_prompt=task_system_prompt
+                None,
+                model=model,
+                depth=depth + 1,
+                task_system_prompt=task_system_prompt,
             )
 
         elif name == "generate_full_code":
@@ -166,10 +202,14 @@ class OpenAIClient:
         elif name == "task_complete":
             return True
 
-        return self.query(None, depth=depth + 1, task_system_prompt=task_system_prompt)
+        return self.query(
+            None, model=model, depth=depth + 1, task_system_prompt=task_system_prompt
+        )
 
-    def query_plot(self, query, task_system_prompt=TASK_SYSTEM_PROMPT):
-        resp = self.query(query, task_system_prompt=task_system_prompt)
+    def query_plot(
+        self, query, model="gpt-3.5-turbo", task_system_prompt=TASK_SYSTEM_PROMPT
+    ):
+        resp = self.query(query, model=model, task_system_prompt=task_system_prompt)
         logger.debug(f"query final response: {resp}")
         if resp:
             generated_code = self.get_generated_code_from_history()
@@ -207,8 +247,8 @@ class OpenAIClient:
     def messages_length(self):
         return len(self.messages_history)
 
-    def messages_num_tokens(self):
-        return self.num_tokens_from_messages(self.messages_history)
+    def messages_num_tokens(self, model="gpt-3.5-turbo"):
+        return self.num_tokens_from_messages(self.messages_history, model)
 
     def messages_clear(self):
         self.messages_history = []
@@ -268,11 +308,16 @@ class OpenAIClient:
         use_messages = messages.copy()
         use_messages_total_tokens = cls.num_tokens_from_messages(use_messages, model)
         logger.debug(f"Total number of tokens in messages: {use_messages_total_tokens}")
-        if use_messages_total_tokens >= MAXIMUM_NUMBER_OF_TOKENS:
+        if use_messages_total_tokens >= MODEL_CONFIGS.get(model, {}).get(
+            MAXIMUM_NUMBER_OF_TOKENS_KEY, DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
+        ):
             logger.debug(
                 f"  Need to remove an entry from the list of messages to reduce the number of tokens"
             )
-            while use_messages_total_tokens >= MAXIMUM_NUMBER_OF_TOKENS:
+            while use_messages_total_tokens >= MODEL_CONFIGS.get(model, {}).get(
+                MAXIMUM_NUMBER_OF_TOKENS_KEY,
+                DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER,
+            ):
                 del use_messages[2]
                 use_messages_total_tokens = cls.num_tokens_from_messages(
                     use_messages, model
