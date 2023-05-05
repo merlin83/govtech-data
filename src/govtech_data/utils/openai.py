@@ -24,20 +24,21 @@ if openai.api_key is None:
         "OPENAI_API_KEY is not set! Set it as an environment variable with 'export OPENAI_API_KEY=xxx'"
     )
 
-DEFAULT_TEMPERATURE = 0.0
-DEFAULT_MAX_NUMBER_OF_TOKENS = 4000
-TOKEN_BUFFER = 500
+OPENAI_DEFAULT_MODEL = os.getenv("OPENAI_DEFAULT_MODEL", "gpt-3.5-turbo")
+OPENAI_DEFAULT_TEMPERATURE = os.getenv("OPENAI_DEFAULT_TEMPERATURE", 0.0)
+OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS = 4000
 
+TOKEN_BUFFER = os.getenv("OPENAI_TOKEN_BUFFER", 500)
 MAXIMUM_NUMBER_OF_TOKENS_KEY = "MAXIMUM_NUMBER_OF_TOKENS"
 
 MODEL_CONFIGS = {
     "gpt-4-0314": {MAXIMUM_NUMBER_OF_TOKENS_KEY: 8000 - TOKEN_BUFFER},
     "gpt-4": {MAXIMUM_NUMBER_OF_TOKENS_KEY: 8000 - TOKEN_BUFFER},
     "gpt-3.5-turbo-0301": {
-        MAXIMUM_NUMBER_OF_TOKENS_KEY: DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
+        MAXIMUM_NUMBER_OF_TOKENS_KEY: OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
     },
     "gpt-3.5-turbo": {
-        MAXIMUM_NUMBER_OF_TOKENS_KEY: DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
+        MAXIMUM_NUMBER_OF_TOKENS_KEY: OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
     },
 }
 
@@ -59,7 +60,7 @@ class OpenAIClient:
     def query(
         self,
         query,
-        model="gpt-3.5-turbo",
+        model=OPENAI_DEFAULT_MODEL,
         depth=1,
         task_system_prompt=TASK_SYSTEM_PROMPT,
     ):
@@ -207,7 +208,7 @@ class OpenAIClient:
         )
 
     def query_plot(
-        self, query, model="gpt-3.5-turbo", task_system_prompt=TASK_SYSTEM_PROMPT
+        self, query, model=OPENAI_DEFAULT_MODEL, task_system_prompt=TASK_SYSTEM_PROMPT
     ):
         resp = self.query(query, model=model, task_system_prompt=task_system_prompt)
         logger.debug(f"query final response: {resp}")
@@ -247,7 +248,7 @@ class OpenAIClient:
     def messages_length(self):
         return len(self.messages_history)
 
-    def messages_num_tokens(self, model="gpt-3.5-turbo"):
+    def messages_num_tokens(self, model=OPENAI_DEFAULT_MODEL):
         return self.num_tokens_from_messages(self.messages_history, model)
 
     def messages_clear(self):
@@ -258,7 +259,7 @@ class OpenAIClient:
             logger.info(f"--- #{i} ---\n{message})")
 
     @classmethod
-    def num_tokens_from_messages(cls, messages, model="gpt-3.5-turbo"):
+    def num_tokens_from_messages(cls, messages, model=OPENAI_DEFAULT_MODEL):
         """Returns the number of tokens used by a list of messages. - taken from openai-cookbook"""
         try:
             encoding = tiktoken.encoding_for_model(model)
@@ -301,22 +302,23 @@ class OpenAIClient:
     def simple_query_openai(
         cls,
         messages: list[dict],
-        model="gpt-3.5-turbo",
-        temperature=DEFAULT_TEMPERATURE,
+        model=OPENAI_DEFAULT_MODEL,
+        temperature=OPENAI_DEFAULT_TEMPERATURE,
         n=1,
     ) -> list[str]:
         use_messages = messages.copy()
         use_messages_total_tokens = cls.num_tokens_from_messages(use_messages, model)
         logger.debug(f"Total number of tokens in messages: {use_messages_total_tokens}")
         if use_messages_total_tokens >= MODEL_CONFIGS.get(model, {}).get(
-            MAXIMUM_NUMBER_OF_TOKENS_KEY, DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
+            MAXIMUM_NUMBER_OF_TOKENS_KEY,
+            OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER,
         ):
             logger.debug(
                 f"  Need to remove an entry from the list of messages to reduce the number of tokens"
             )
             while use_messages_total_tokens >= MODEL_CONFIGS.get(model, {}).get(
                 MAXIMUM_NUMBER_OF_TOKENS_KEY,
-                DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER,
+                OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER,
             ):
                 del use_messages[2]
                 use_messages_total_tokens = cls.num_tokens_from_messages(
@@ -343,7 +345,7 @@ class OpenAIClient:
         cls,
         messages: list[dict],
         model="gpt-3.5-turbo",
-        temperature=DEFAULT_TEMPERATURE,
+        temperature=OPENAI_DEFAULT_TEMPERATURE,
         n=1,
     ):
         return openai.ChatCompletion.create(
