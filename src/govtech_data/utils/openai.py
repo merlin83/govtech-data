@@ -1,15 +1,15 @@
-import tiktoken
-import tomlkit
+import json
 
+import tiktoken
+
+from govtech_data.models import gptactions
 from govtech_data.prompts.task import TASK_SYSTEM_PROMPT, KEYWORD_SUGGESTION_PROMPT
 from govtech_data.utils import commands
 
 try:
     import openai
 except:
-    raise Exception(
-        "openai module is not installed, you may need to install govtech-data[openai]"
-    )
+    raise Exception("openai module is not installed, you may need to install govtech-data[openai]")
 
 import os
 
@@ -20,11 +20,9 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 if openai.api_key is None:
-    raise Exception(
-        "OPENAI_API_KEY is not set! Set it as an environment variable with 'export OPENAI_API_KEY=xxx'"
-    )
+    raise Exception("OPENAI_API_KEY is not set! Set it as an environment variable with 'export OPENAI_API_KEY=xxx'")
 
-OPENAI_DEFAULT_MODEL = os.getenv("OPENAI_DEFAULT_MODEL", "gpt-3.5-turbo")
+OPENAI_DEFAULT_MODEL = os.getenv("OPENAI_DEFAULT_MODEL", "gpt-3.5-turbo-16k-0613")
 OPENAI_DEFAULT_TEMPERATURE = os.getenv("OPENAI_DEFAULT_TEMPERATURE", 0.0)
 OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS = 4000
 
@@ -35,15 +33,9 @@ MODEL_CONFIGS = {
     "gpt-4-0314": {MAXIMUM_NUMBER_OF_TOKENS_KEY: 8000 - TOKEN_BUFFER},
     "gpt-4-0613": {MAXIMUM_NUMBER_OF_TOKENS_KEY: 8000 - TOKEN_BUFFER},
     "gpt-4": {MAXIMUM_NUMBER_OF_TOKENS_KEY: 8000 - TOKEN_BUFFER},
-    "gpt-3.5-turbo-0301": {
-        MAXIMUM_NUMBER_OF_TOKENS_KEY: OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
-    },
-    "gpt-3.5-turbo-0613": {
-        MAXIMUM_NUMBER_OF_TOKENS_KEY: OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
-    },
-    "gpt-3.5-turbo": {
-        MAXIMUM_NUMBER_OF_TOKENS_KEY: OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER
-    },
+    "gpt-3.5-turbo-0301": {MAXIMUM_NUMBER_OF_TOKENS_KEY: OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER},
+    "gpt-3.5-turbo-0613": {MAXIMUM_NUMBER_OF_TOKENS_KEY: OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER},
+    "gpt-3.5-turbo": {MAXIMUM_NUMBER_OF_TOKENS_KEY: OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER},
     "gpt-3.5-turbo-16k-0613": {MAXIMUM_NUMBER_OF_TOKENS_KEY: 16000 - TOKEN_BUFFER},
     "gpt-3.5-turbo-16k": {MAXIMUM_NUMBER_OF_TOKENS_KEY: 16000 - TOKEN_BUFFER},
 }
@@ -66,6 +58,7 @@ class OpenAIClient:
     def query(
         self,
         query,
+        functions=gptactions.LIST_OF_FUNCTIONS,
         model=OPENAI_DEFAULT_MODEL,
         depth=1,
         task_system_prompt=TASK_SYSTEM_PROMPT,
@@ -81,45 +74,44 @@ class OpenAIClient:
             if len(self.messages_history) == 1:
                 role = "user"
             else:
-                role = "assistant"
+                role = "system"
             message = self.get_message(role, query)
             logger.debug(f"Request:\n{message}")
             self.messages_history.append(message)
 
-        responses = self.simple_query_openai(self.messages_history, model=model, n=1)
+        responses = self.simple_query_openai(self.messages_history, functions=functions, model=model, n=1)
 
         if len(responses) == 0:
             return False
 
-        response = responses[0]
+        raw_response = responses[0]
 
-        self.last_response = response
+        self.last_response = raw_response
 
         try:
-            # response_data = json.loads(response, strict=False)
-            # response_data = yaml.safe_load(response)
-            response_data = tomlkit.loads(response)
+            finish_reason = raw_response.get("finish_reason", None)
+            if finish_reason == "function_call":
+                response = raw_response["message"]["function_call"]
+                name, args = response["name"], json.loads(response["arguments"])
+            else:
+                response = raw_response["message"]
+                self.messages_history.append(self.get_message("assistant", commands.json_dump(response)))
+                return self.query(
+                    self.get_message("user", "Please return a function call"),
+                    functions=functions,
+                    model=model,
+                    depth=depth + 1,
+                    task_system_prompt=task_system_prompt,
+                )
 
-            command = response_data.get("current_command", {})
-            name, args = command.get("name", "").strip().strip('"'), {
-                k: v.strip().strip('"') if isinstance(v, str) else v
-                for k, v in command.get("args", {}).items()
-            }
-
-            if args:
-                response_data["current_command"]["args"] = args
-
-            logger.debug(f"ChatGPT content response:\n{response_data}")
-            self.messages_history.append(
-                self.get_message("assistant", commands.toml_dump(response_data))
-            )
+            logger.debug(f"ChatGPT content response:\n{response}")
+            self.messages_history.append(self.get_function_message(name, commands.json_dump(args)))
         except:
-            logger.exception(
-                f"response cannot be parsed! ChatGPT content response:\n{response}"
-            )
-            self.messages_history.append(self.get_message("assistant", response))
+            logger.exception(f"response cannot be parsed! ChatGPT content response:\n{raw_response}")
+            self.messages_history.append(self.get_message("assistant", commands.json_dump(raw_response)))
             return self.query(
                 None,
+                functions=functions,
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
@@ -128,32 +120,47 @@ class OpenAIClient:
         if name == "dataset_search":
             ss_messages = [
                 self.get_message("system", KEYWORD_SUGGESTION_PROMPT),
-                self.get_message("assistant", commands.toml_dump(response_data)),
+                # self.get_message("function", commands.json_dump(response)),
+                self.get_function_message(
+                    response["name"],
+                    commands.json_dump(json.loads(response["arguments"])),
+                ),
                 self.get_message("user", args.get("input")),
             ]
             # logger.info(f"ss_messages: {ss_messages}")
             ss_responses = self.simple_query_openai(
-                ss_messages, model=model, temperature=0.7, n=1
+                ss_messages,
+                functions=gptactions.KEYWORD_PHRASES_FUNCTION,
+                model=model,
+                temperature=0.7,
+                n=1,
             )
+
+            ss_raw_response = ss_responses[0]
+
             try:
-                ss_response_data = tomlkit.loads(ss_responses[0])
-                logger.debug(f"ChatGPT ss_response_data:\n{ss_response_data}")
-                ss_thoughts, ss_phrases = ss_response_data.get("general", {}).get(
-                    "thoughts"
-                ), ss_response_data.get("general", {}).get("phrases", [])
-                return self.query(
-                    commands.dataset_search_batch([args.get("input")] + ss_phrases),
-                    model=model,
-                    depth=depth + 1,
-                    task_system_prompt=task_system_prompt,
-                )
+                ss_finish_reason = ss_raw_response.get("finish_reason", None)
+                if ss_finish_reason == "function_call":
+                    ss_response = ss_raw_response["message"]["function_call"]
+                    ss_name, ss_args = ss_response["name"], json.loads(ss_response["arguments"])
+                    logger.debug(f"ChatGPT ss_response_data:\n{ss_response}")
+                    ss_thoughts, ss_phrases = ss_args.get("current_thoughts", {}).get("thoughts"), ss_args.get(
+                        "phrases", []
+                    )
+                    return self.query(
+                        commands.dataset_search_batch([args.get("input")] + ss_phrases),
+                        functions=functions,
+                        model=model,
+                        depth=depth + 1,
+                        task_system_prompt=task_system_prompt,
+                    )
+
             except:
-                logger.exception(
-                    f"response cannot be parsed! ChatGPT content response:\n{response}"
-                )
-                self.messages_history.append(self.get_message("assistant", response))
+                logger.exception(f"response cannot be parsed! ChatGPT content response:\n{ss_responses}")
+                self.messages_history.append(self.get_message("assistant", ss_response))
                 return self.query(
                     None,
+                    functions=functions,
                     model=model,
                     depth=depth + 1,
                     task_system_prompt=task_system_prompt,
@@ -162,6 +169,7 @@ class OpenAIClient:
         elif name == "get_dataset":
             return self.query(
                 commands.get_dataset_schema(args.get("id")),
+                functions=functions,
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
@@ -170,6 +178,7 @@ class OpenAIClient:
         elif name == "get_dataset_schema":
             return self.query(
                 commands.get_dataset_schema(args.get("id")),
+                functions=functions,
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
@@ -177,9 +186,8 @@ class OpenAIClient:
 
         elif name == "get_all_distinct_values_in_a_dataset_field":
             return self.query(
-                commands.get_all_distinct_values_in_a_dataset_field(
-                    args.get("id"), args.get("field")
-                ),
+                commands.get_all_distinct_values_in_a_dataset_field(args.get("id"), args.get("field")),
+                functions=functions,
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
@@ -190,6 +198,7 @@ class OpenAIClient:
                 commands.search_for_relevant_values_in_a_dataset_field(
                     args.get("id"), args.get("field"), args.get("value")
                 ),
+                functions=functions,
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
@@ -198,25 +207,48 @@ class OpenAIClient:
         elif name == "do_nothing":
             return self.query(
                 None,
+                functions=functions,
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
             )
 
         elif name == "generate_full_code":
+            return self.query(
+                "Fix and optimize the following code",
+                functions=functions,
+                model=model,
+                depth=depth + 1,
+                task_system_prompt=task_system_prompt,
+            )
+
+        elif name == "generate_optimized_code":
             return True
 
         elif name == "task_complete":
             return True
 
         return self.query(
-            None, model=model, depth=depth + 1, task_system_prompt=task_system_prompt
+            None,
+            functions=functions,
+            model=model,
+            depth=depth + 1,
+            task_system_prompt=task_system_prompt,
         )
 
     def query_plot(
-        self, query, model=OPENAI_DEFAULT_MODEL, task_system_prompt=TASK_SYSTEM_PROMPT
+        self,
+        query,
+        functions=gptactions.LIST_OF_FUNCTIONS,
+        model=OPENAI_DEFAULT_MODEL,
+        task_system_prompt=TASK_SYSTEM_PROMPT,
     ):
-        resp = self.query(query, model=model, task_system_prompt=task_system_prompt)
+        resp = self.query(
+            query,
+            functions=functions,
+            model=model,
+            task_system_prompt=task_system_prompt,
+        )
         logger.debug(f"query final response: {resp}")
         if resp:
             generated_code = self.get_generated_code_from_history()
@@ -229,23 +261,15 @@ class OpenAIClient:
         for message in reversed(self.messages_history):
             if "content" not in message:
                 continue
+            if message.get("role", "") != "function":
+                continue
             try:
-                last_message_content = tomlkit.loads(message["content"])
-                if not isinstance(last_message_content, dict):
-                    continue
+                if message.get("name", "") == "generate_optimized_code":
+                    generated_code = json.loads(message.get("content", "{}")).get("code")
+                if generated_code:
+                    break
             except:
                 continue
-            if (
-                last_message_content.get("current_command", {}).get("name", "")
-                == "generate_full_code"
-            ):
-                generated_code = (
-                    last_message_content.get("current_command", {})
-                    .get("args", {})
-                    .get("code")
-                )
-            if generated_code:
-                break
         return generated_code
 
     def messages_add(self, message: dict[str, str]):
@@ -274,22 +298,18 @@ class OpenAIClient:
             encoding = tiktoken.get_encoding("cl100k_base")
         if model in ("gpt-3.5-turbo", "gpt-3.5-turbo-0613"):
             logger.warning(
-                "Warning: gpt-3.5-turbo may change over time. Returning num tokens assuming gpt-3.5-turbo-0301."
+                "Warning: gpt-3.5-turbo may change over time. Returning num tokens assuming gpt-3.5-turbo-0613."
             )
-            return cls.num_tokens_from_messages(messages, model="gpt-3.5-turbo-0301")
+            return cls.num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
         elif model == "gpt-4":
-            logger.warning(
-                "Warning: gpt-4 may change over time. Returning num tokens assuming gpt-4-0314."
-            )
-            return cls.num_tokens_from_messages(messages, model="gpt-4-0314")
+            logger.warning("Warning: gpt-4 may change over time. Returning num tokens assuming gpt-4-0613.")
+            return cls.num_tokens_from_messages(messages, model="gpt-4-0613")
         elif model in (
             "gpt-3.5-turbo-0301",
             "gpt-3.5-turbo-0613",
             "gpt-3.5-turbo-16k-0613",
         ):
-            tokens_per_message = (
-                4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
-            )
+            tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
             tokens_per_name = -1  # if there's a name, the role is omitted
         elif model in ("gpt-4-0314", "gpt-4-0613"):
             tokens_per_message = 3
@@ -302,6 +322,8 @@ class OpenAIClient:
         for message in messages:
             num_tokens += tokens_per_message
             for key, value in message.items():
+                if not isinstance(value, str):
+                    value = commands.json_dump(value)
                 num_tokens += len(encoding.encode(value))
                 if key == "name":
                     num_tokens += tokens_per_name
@@ -312,38 +334,37 @@ class OpenAIClient:
     def simple_query_openai(
         cls,
         messages: list[dict],
+        functions: list[dict],
         model=OPENAI_DEFAULT_MODEL,
         temperature=OPENAI_DEFAULT_TEMPERATURE,
         n=1,
     ) -> list[str]:
         use_messages = messages.copy()
-        use_messages_total_tokens = cls.num_tokens_from_messages(use_messages, model)
-        logger.debug(f"Total number of tokens in messages: {use_messages_total_tokens}")
-        if use_messages_total_tokens >= MODEL_CONFIGS.get(model, {}).get(
+        if n == 1:
+            logger.debug(f"functions: \n{functions}")
+        logger.debug(f"use_messages: \n{use_messages}")
+        total_tokens = cls.num_tokens_from_messages(use_messages + functions, model)
+        logger.debug(f"Total number of tokens in messages: {total_tokens}")
+        if total_tokens >= MODEL_CONFIGS.get(model, {}).get(
             MAXIMUM_NUMBER_OF_TOKENS_KEY,
             OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER,
         ):
-            logger.debug(
-                f"  Need to remove an entry from the list of messages to reduce the number of tokens"
-            )
-            while use_messages_total_tokens >= MODEL_CONFIGS.get(model, {}).get(
+            logger.debug(f"  Need to remove an entry from the list of messages to reduce the number of tokens")
+            while total_tokens >= MODEL_CONFIGS.get(model, {}).get(
                 MAXIMUM_NUMBER_OF_TOKENS_KEY,
                 OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS - TOKEN_BUFFER,
             ):
                 del use_messages[2]
-                use_messages_total_tokens = cls.num_tokens_from_messages(
-                    use_messages, model
-                )
-                logger.debug(
-                    f"  Total number of tokens in messages remaining: {use_messages_total_tokens}"
-                )
+                total_tokens = cls.num_tokens_from_messages(use_messages + functions, model)
+                logger.debug(f"  Total number of tokens in messages remaining: {total_tokens}")
 
-        completion = cls.__query_openai(use_messages, model, temperature, n)
+        completion = cls.__query_openai(use_messages, functions, model, temperature, n)
         responses = []
         logger.debug(f"ChatGPT Completion Response:\n{completion}")
         for choice in completion.choices:
-            if "content" in choice.message:
-                responses.append(choice.message["content"])
+            responses.append(choice)
+            # if "content" in choice.message:
+            #     responses.append(choice.message["content"])
         return responses
 
     @classmethod
@@ -351,16 +372,31 @@ class OpenAIClient:
         return {"role": role, "content": content}
 
     @classmethod
+    def get_function_message(cls, name: str, arguments: str) -> dict[str, str]:
+        return {"role": "function", "name": name, "content": arguments}
+
+    @classmethod
     def __query_openai(
         cls,
         messages: list[dict],
+        functions: list[dict],
         model="gpt-3.5-turbo",
         temperature=OPENAI_DEFAULT_TEMPERATURE,
         n=1,
     ):
+        if len(functions) == 0:
+            return openai.ChatCompletion.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                n=n,
+                stream=False,
+            )
         return openai.ChatCompletion.create(
             model=model,
             messages=messages,
+            functions=functions,
+            function_call="auto",
             temperature=temperature,
             n=n,
             stream=False,
