@@ -9,19 +9,19 @@ packages = [{include = "govtech_data", from = "src"}]
 repository = "https://github.com/merlin83/govtech-data"
 
 [tool.poetry.dependencies]
+python = "^3.10"
 loguru = "^0.7.0"
 openai = {version = "^0.27.4", optional = true}
+polars = "^0.17.2"
 pyarrow = {version = "^12.0.0"}
 pydantic = "^1.10.7"
-python = "^3.10"
-python-levenshtein = "^0.21"
-polars = "^0.17.2"
-requests = "^2.28.2"
 python-dotenv = {version = "^1.0.0", optional = true}
-seaborn = {version = "^0.12.2", optional = true}
-tiktoken = {version = "^0.3.3", optional = true}
-thefuzz = "^0.19.0"
+python-levenshtein = "^0.21"
 pyyaml = "^6.0"
+requests = "^2.28.2"
+seaborn = {version = "^0.12.2", optional = true}
+thefuzz = "^0.19.0"
+tiktoken = {version = "^0.3.3", optional = true}
 tomlkit = "^0.11.7"
 
 [tool.poetry.dev-dependencies]
