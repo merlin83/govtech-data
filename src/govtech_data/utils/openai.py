@@ -272,7 +272,7 @@ class OpenAIClient:
         except KeyError:
             logger.warning("Warning: model not found. Using cl100k_base encoding.")
             encoding = tiktoken.get_encoding("cl100k_base")
-        if model == "gpt-3.5-turbo":
+        if model in ("gpt-3.5-turbo", "gpt-3.5-turbo-0613"):
             logger.warning(
                 "Warning: gpt-3.5-turbo may change over time. Returning num tokens assuming gpt-3.5-turbo-0301."
             )
@@ -282,12 +282,16 @@ class OpenAIClient:
                 "Warning: gpt-4 may change over time. Returning num tokens assuming gpt-4-0314."
             )
             return cls.num_tokens_from_messages(messages, model="gpt-4-0314")
-        elif model == "gpt-3.5-turbo-0301":
+        elif model in (
+            "gpt-3.5-turbo-0301",
+            "gpt-3.5-turbo-0613",
+            "gpt-3.5-turbo-16k-0613",
+        ):
             tokens_per_message = (
                 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
             )
             tokens_per_name = -1  # if there's a name, the role is omitted
-        elif model == "gpt-4-0314":
+        elif model in ("gpt-4-0314", "gpt-4-0613"):
             tokens_per_message = 3
             tokens_per_name = 1
         else:
