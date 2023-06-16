@@ -1,8 +1,6 @@
 import json
 from typing import Any
 
-import tomlkit
-import yaml
 from thefuzz import fuzz, process
 
 from govtech_data import GovTechClient
@@ -102,11 +100,3 @@ def search_for_relevant_values_in_a_dataset_field(
 
 def json_dump(obj: Any) -> str:
     return json.dumps(obj, separators=(",", ":"))
-
-
-def yaml_dump(obj: Any) -> str:
-    return yaml.dump(obj, sort_keys=False)
-
-
-def toml_dump(obj: Any) -> str:
-    return tomlkit.dumps(obj, sort_keys=False)
