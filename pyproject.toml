@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "govtech-data"
-version = "0.1.18"
+version = "0.1.19"
 description = "Library to easily access and read data from data.gov.sg"
 authors = ["Khee-Chin Chua <kheechin@gmail.com>"]
 license = "Singapore Open Data License"
