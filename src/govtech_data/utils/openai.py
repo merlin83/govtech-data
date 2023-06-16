@@ -62,6 +62,7 @@ class OpenAIClient:
         model=OPENAI_DEFAULT_MODEL,
         depth=1,
         task_system_prompt=TASK_SYSTEM_PROMPT,
+        role="user",
     ):
         if depth >= self.CIRCUIT_BREAKER_LIMIT:
             logger.error("circuit-breaker triggered to avoid an infinite query loop")
@@ -71,10 +72,6 @@ class OpenAIClient:
             self.messages_history.append(self.get_message("system", task_system_prompt))
 
         if query:
-            if len(self.messages_history) == 1:
-                role = "user"
-            else:
-                role = "system"
             message = self.get_message(role, query)
             logger.debug(f"Request:\n{message}")
             self.messages_history.append(message)
@@ -97,11 +94,12 @@ class OpenAIClient:
                 response = raw_response["message"]
                 self.messages_history.append(self.get_message("assistant", commands.json_dump(response)))
                 return self.query(
-                    self.get_message("user", "Please return a function call"),
+                    "Please return a function call",
                     functions=functions,
                     model=model,
                     depth=depth + 1,
                     task_system_prompt=task_system_prompt,
+                    role="system",
                 )
 
             logger.debug(f"ChatGPT content response:\n{response}")
@@ -153,6 +151,7 @@ class OpenAIClient:
                         model=model,
                         depth=depth + 1,
                         task_system_prompt=task_system_prompt,
+                        role="system",
                     )
 
             except:
@@ -173,6 +172,7 @@ class OpenAIClient:
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
+                role="system",
             )
 
         elif name == "get_dataset_schema":
@@ -182,6 +182,7 @@ class OpenAIClient:
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
+                role="system",
             )
 
         elif name == "get_all_distinct_values_in_a_dataset_field":
@@ -191,6 +192,7 @@ class OpenAIClient:
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
+                role="system",
             )
 
         elif name == "search_for_relevant_values_in_a_dataset_field":
@@ -202,6 +204,7 @@ class OpenAIClient:
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
+                role="system",
             )
 
         elif name == "do_nothing":
@@ -211,6 +214,7 @@ class OpenAIClient:
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
+                role="system",
             )
 
         elif name == "generate_full_code":
@@ -220,6 +224,7 @@ class OpenAIClient:
                 model=model,
                 depth=depth + 1,
                 task_system_prompt=task_system_prompt,
+                role="system",
             )
 
         elif name == "generate_optimized_code":
@@ -234,6 +239,7 @@ class OpenAIClient:
             model=model,
             depth=depth + 1,
             task_system_prompt=task_system_prompt,
+            role="system",
         )
 
     def query_plot(
@@ -248,6 +254,7 @@ class OpenAIClient:
             functions=functions,
             model=model,
             task_system_prompt=task_system_prompt,
+            role="user",
         )
         logger.debug(f"query final response: {resp}")
         if resp:
