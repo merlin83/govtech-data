@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "govtech-data"
-version = "0.1.20"
+version = "0.1.21"
 description = "Library to easily access and read data from data.gov.sg"
 authors = ["Khee-Chin Chua <kheechin@gmail.com>"]
 license = "Singapore Open Data License"
@@ -9,7 +9,7 @@ packages = [{include = "govtech_data", from = "src"}]
 repository = "https://github.com/merlin83/govtech-data"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<4.0"
 jsonref = "^1.1.0"
 loguru = "^0.7.0"
 openai = {version = "^0.27.4", optional = true}
