@@ -22,7 +22,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 if openai.api_key is None:
     raise Exception("OPENAI_API_KEY is not set! Set it as an environment variable with 'export OPENAI_API_KEY=xxx'")
 
-OPENAI_DEFAULT_MODEL = os.getenv("OPENAI_DEFAULT_MODEL", "gpt-3.5-turbo-16k-0613")
+OPENAI_DEFAULT_MODEL = os.getenv("OPENAI_DEFAULT_MODEL", "gpt-4")
 OPENAI_DEFAULT_TEMPERATURE = os.getenv("OPENAI_DEFAULT_TEMPERATURE", 0.0)
 OPENAI_DEFAULT_MAX_NUMBER_OF_TOKENS = 4000
 
@@ -303,7 +303,7 @@ class OpenAIClient:
         except KeyError:
             logger.warning("Warning: model not found. Using cl100k_base encoding.")
             encoding = tiktoken.get_encoding("cl100k_base")
-        if model in ("gpt-3.5-turbo", "gpt-3.5-turbo-0613"):
+        if model in ("gpt-3.5-turbo"):
             logger.warning(
                 "Warning: gpt-3.5-turbo may change over time. Returning num tokens assuming gpt-3.5-turbo-0613."
             )
