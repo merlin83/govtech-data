@@ -159,3 +159,15 @@ class GovTechClient:
         if len(package_content.resources) == 0:
             return None
         return package_content.resources[0].get_dataframe()
+
+    @classmethod
+    @validate_arguments
+    def fetch_content_urls_from_package(
+        cls, package_name: str
+    ) -> Union[list[str], None]:
+        package_show_model: Union[PackageShowModel, None] = cls.package_show(
+            package_name
+        )
+        if package_show_model.result is None:
+            return None
+        return [i.url for i in package_show_model.result.resources]
